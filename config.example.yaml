@@ -1,0 +1,38 @@
+# Telemetry Bridge configuration. Every key is optional; defaults shown.
+
+sim: mock            # mock | iracing | ac | acc
+
+live:
+  enabled: true
+  host: 127.0.0.1
+  port: 8765
+  rate_hz: 60        # live stream throttle
+
+history:
+  directory: telemetry_logs
+  format: parquet    # parquet | csv
+  batch_size: 256    # frames per row group / flush
+  roll_minutes: 10   # start a new file chunk this often (crash safety)
+  queue_size: 20000
+
+capture:
+  poll_timeout_s: 0.1
+  reconnect_min_s: 1.0
+  reconnect_max_s: 10.0
+
+tracker:
+  log_replay: false  # record frames during replay playback
+  log_paused: false  # record frames while the sim is paused
+
+# Only used when sim: mock — scripted edge cases for testing.
+mock:
+  rate_hz: 60
+  lap_seconds: 45
+  session_type: practice
+  # pause_at: 20     # pause the session at t=20s ...
+  # pause_for: 5     # ... for 5 seconds
+  # reset_at: 90     # restart the session at t=90s
+  # duplicate_every: 0
+  # disconnect_at: null
+
+log_level: INFO
