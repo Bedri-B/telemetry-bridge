@@ -1,14 +1,33 @@
 # Telemetry Bridge
 
-A Windows desktop (headless CLI) telemetry bridge for racing simulators —
-**iRacing**, **Assetto Corsa** and **Assetto Corsa Competizione** — with dual
-output streams:
+[![tests](https://github.com/Bedri-B/telemetry-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Bedri-B/telemetry-bridge/actions/workflows/ci.yml)
+[![python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+[![platform](https://img.shields.io/badge/platform-Windows-0078D6)](#quick-start)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+A headless Windows CLI that pulls live telemetry out of **iRacing**,
+**Assetto Corsa** and **Assetto Corsa Competizione** shared memory and fans it
+out to two consumers at once — without either ever blocking capture:
 
 * **Live stream** — real-time telemetry over WebSockets, throttled to ~60 Hz
   for front-end consumption (lap/session events are never throttled away).
 * **Historic log** — every frame at the simulator's native rate (up to
   ~333 Hz on AC/ACC) written to Parquet (or CSV), tagged with session and
-  lap ids.
+  lap ids, crash-safe.
+
+**Highlights**
+
+* Adapter pattern isolates each sim's quirks behind one normalized frame
+  (units unified: speed m/s, lap times ms, gear -1/0/1..n, pedals 0..1).
+* Automatic reconnection with exponential backoff — start the bridge before
+  the game, restart the game mid-run, it just keeps going.
+* Session state machine handles resets, pauses, replays, duplicate frames
+  and sim exits — pure logic, fully unit-tested (29 tests).
+* Non-blocking by construction: capture thread → asyncio core → dedicated
+  log-writer thread, bounded queues everywhere, slow consumers can't stall
+  capture.
+* Built-in **mock sim** that scripts every edge case, so the whole pipeline
+  runs and tests without any game installed.
 
 ```
 [sim shared memory]
@@ -26,7 +45,7 @@ output streams:
 ## Quick start
 
 ```powershell
-git clone <repo> && cd TelemetryBridge
+git clone https://github.com/Bedri-B/telemetry-bridge.git && cd telemetry-bridge
 python -m venv .venv
 .\.venv\Scripts\pip install -e ".[dev]"          # add [iracing] for pyirsdk
 .\.venv\Scripts\pip install -e ".[dev,iracing]"  # ... like this
@@ -39,6 +58,21 @@ python -m venv .venv
 
 # Run against a real sim:
 .\.venv\Scripts\python -m telemetry_bridge --config config.example.yaml --sim iracing
+```
+
+The verification client prints one line per second plus every event — this is
+a real capture from the mock sim:
+
+```
+connected to ws://127.0.0.1:8765
+hello: {'type': 'hello', 'app': 'telemetry-bridge', 'version': '0.1.0'}
+ 60.0 msg/s | state=live lap=0 speed= 26.3 m/s gear=4 rpm= 3316
+EVENT ['lap_complete']  lap=1 session=mock-2bb87403420d
+ 58.1 msg/s | state=live lap=1 speed= 37.9 m/s gear=5 rpm= 5318
+EVENT ['paused']  lap=1 session=mock-2bb87403420d
+EVENT ['resumed']  lap=1 session=mock-2bb87403420d
+ 59.1 msg/s | state=live lap=1 speed= 24.2 m/s gear=4 rpm= 2100
+EVENT ['session_end', 'session_start']  lap=0 session=mock-ffadbdb91711
 ```
 
 The bridge runs until Ctrl+C. If the sim is not running yet (or exits), the
@@ -145,3 +179,7 @@ Run the unit suite (no sims, no network):
 * Rombik's `sim_info.py` ([maintained copy](https://github.com/ac-custom-shaders-patch/acc-extension-apps/blob/master/apps/python/AccExtHelper/sim_info.py)) — de-facto standard AC ctypes mapping
 * [CrewChiefV4](https://github.com/mrbelowski/CrewChiefV4) — battle-tested C# mappers for all three sims
 * [SimHub](https://www.simhubdash.com/) — behavioral reference for multi-sim bridges
+
+## License
+
+[MIT](LICENSE)
